@@ -12,15 +12,13 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY . .
+COPY app/ ./app/
 
-# Copy shared modules from parent directory
-COPY ../shared /app/shared
-COPY ../aoai_client.py /app/
-COPY ../cosmos_client.py /app/
+# Set Python path
+ENV PYTHONPATH=/app
 
 # Expose port
 EXPOSE 8000
 
 # Run the application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000"]

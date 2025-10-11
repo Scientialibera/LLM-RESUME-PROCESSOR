@@ -7,6 +7,8 @@ import re
 from typing import Dict, Any, List
 import structlog
 
+from backend.app.shared.schemas import RESUME_EXTRACTION_FUNCTION
+
 logger = structlog.get_logger(__name__)
 
 
@@ -20,8 +22,6 @@ class ResumeProcessor:
 
     async def extract_resume_data(self, resume_text: str) -> Dict[str, Any]:
         """Extract structured data from resume text using OpenAI function calling."""
-        from shared.schemas import RESUME_EXTRACTION_FUNCTION
-
         logger.info("Extracting resume data", text_length=len(resume_text))
 
         messages = [

@@ -9,7 +9,7 @@ from azure.cosmos import exceptions
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 import structlog
 
-from shared.config import CosmosDBSettings
+from backend.app.shared.config import CosmosDBSettings
 
 logger = structlog.get_logger(__name__)
 

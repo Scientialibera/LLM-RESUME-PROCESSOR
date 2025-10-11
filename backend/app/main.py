@@ -13,18 +13,14 @@ from typing import List, Optional
 import sys
 import os
 
-# Add parent directory to path for imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-
-from shared.config import get_settings
-from shared.schemas import (
+from backend.app.shared.config import get_settings
+from backend.app.shared.schemas import (
     ResumeUploadResponse,
     ResumeListResponse,
     ResumeSearchRequest,
     ResumeSearchResult
 )
-from aoai_client import AzureOpenAIClient
-from cosmos_client import CosmosDBClient
+from backend.app.clients import AzureOpenAIClient, CosmosDBClient
 from backend.app.services.resume_processor import ResumeProcessor
 
 # Configure logging

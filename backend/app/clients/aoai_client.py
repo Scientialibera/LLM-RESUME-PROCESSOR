@@ -9,7 +9,7 @@ from openai import AsyncAzureOpenAI
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 import structlog
 
-from shared.config import AzureOpenAISettings
+from backend.app.shared.config import AzureOpenAISettings
 
 logger = structlog.get_logger(__name__)
 
