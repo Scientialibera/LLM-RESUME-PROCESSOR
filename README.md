@@ -1,242 +1,109 @@
-# Resume Processor Agent
+# LLM Resume Processor
 
-Enterprise-grade AI-powered resume processing using the **Microsoft Agent Framework** pattern. Automatically extracts structured data, generates unbiased summaries, and removes PII from resumes.
+Enterprise-grade resume processing **pipeline** built with Azure OpenAI and Cosmos DB.
 
-## Architecture
+>  **Architecture Note**: This is a **deterministic pipeline**, not an agentic system.
+> Agents are for autonomous decision-making; this is a sequential workflow.
 
-```mermaid
-graph TB
-    subgraph Client Layer
-        UI[React Frontend]
-        API[FastAPI Backend]
-    end
-    
-    subgraph Agent Layer
-        Agent[ResumeProcessorAgent]
-        Config[agent.toml]
-        
-        subgraph Tools
-            Extract[ResumeExtractor]
-            Summary[ResumeSummarizer]
-            PII[PIIRemover]
-            Storage[ResumeStorage]
-        end
-    end
-    
-    subgraph Azure Services
-        AOAI[Azure OpenAI<br/>GPT-4o]
-        Cosmos[(Cosmos DB)]
-        EventGrid[Event Grid]
-    end
-    
-    UI --> API
-    API --> Agent
-    Agent --> Config
-    Agent --> Extract
-    Agent --> Summary
-    Agent --> PII
-    Agent --> Storage
-    
-    Extract --> AOAI
-    Summary --> AOAI
-    PII --> AOAI
-    Storage --> Cosmos
-    
-    Cosmos --> EventGrid
-    EventGrid --> API
-    
-    style Agent fill:#0078D4,color:#fff
-    style AOAI fill:#00A36C,color:#fff
-    style Cosmos fill:#00A36C,color:#fff
-```
+## Pipeline Flow
 
-## Features
+\\\
+Resume Upload  Extract Data  Generate Summary  Remove PII  Store Results
+\\\
 
-| Feature | Description |
-|---------|-------------|
-| **AI Data Extraction** | Function calling to extract personal info, education, experience, skills |
-| **Unbiased Summaries** | Neutral language, extractive summarization |
-| **PII Removal** | AI-powered redaction of sensitive information |
-| **Role Suggestions** | 10 AI-generated job role recommendations |
-| **Event-Driven** | Automatic processing via Azure Event Grid |
-| **Managed Identity** | Secure, keyless authentication to Azure |
+\\\mermaid
+graph LR
+    A[ Resume Upload] --> B[ Extract Data]
+    B --> C[ Summarize]
+    C --> D[ Remove PII]
+    D --> E[ Store to Cosmos DB]
+\\\
 
 ## Quick Start
 
-### Prerequisites
-
-- Python 3.11+
-- Node.js 18+
-- Azure subscription with:
-  - Azure OpenAI (GPT-4o deployment)
-  - Cosmos DB account
-  - Event Grid topic (optional)
-
-### 1. Clone & Install
-
-```bash
-git clone https://github.com/Scientialibera/LLM-RESUME-PROCESSOR.git
-cd LLM-RESUME-PROCESSOR
-
-# Backend
-cd backend
-python -m venv .venv
-.venv\Scripts\activate  # Windows
+\\\ash
+# Install
 pip install -r requirements.txt
 
-# Frontend
-cd ../frontend
-npm install
-```
-
-### 2. Configure Environment
-
-```bash
+# Configure
 cp .env.example .env
-```
+# Edit .env with your Azure credentials
 
-Edit `.env`:
-```env
-AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com
-AZURE_OPENAI_API_KEY=your-key  # Or use Managed Identity
-COSMOS_DB_ENDPOINT=https://your-cosmos.documents.azure.com:443/
-```
-
-### 3. Run
-
-```bash
-# Backend (terminal 1)
-cd backend
-python -m uvicorn app.main:app --reload --port 8000
-
-# Frontend (terminal 2)
-cd frontend
-npm run dev
-```
-
-- **API**: http://localhost:8000/docs
-- **Frontend**: http://localhost:5173
+# Run API
+python -m uvicorn src.api.main:app --reload
+\\\
 
 ## Project Structure
 
-```
-LLM-RESUME-PROCESSOR/
+\\\
  config/
-    agent.toml              # Agent configuration
-    orchestrator/
-        system_prompt.txt   # Agent system prompt
+    agent.toml          # Pipeline configuration (TOML)
  src/
-    orchestrator/
-       main.py             # ResumeProcessorAgent
-    tools/
-        resume/
-            extractor.py    # Data extraction tool
-            summarizer.py   # Summary generation tool
-            pii_remover.py  # PII removal tool
-            storage.py      # Cosmos DB storage tool
- backend/
-    app/
-        main.py             # FastAPI application
-        clients/            # Azure service clients
-        services/           # Business logic
- frontend/
-    src/
-        pages/              # React pages
-        services/           # API client
- deployment/
-     Deploy-AzureResources.ps1
-```
+    api/                 # FastAPI endpoints
+       main.py
+    pipeline/            # Processing workflow
+        processor.py     # Main pipeline orchestrator
+        extractor.py     # Resume data extraction
+        summarizer.py    # Summary generation
+        pii_remover.py   # PII redaction
+        storage.py       # Cosmos DB storage
+ frontend/                # React UI
+ requirements.txt
+\\\
 
-## Agent Configuration
+## Pipeline Steps
 
-The agent is configured via `config/agent.toml`:
+| Step | Function | Description |
+|------|----------|-------------|
+| 1 | \xtract_resume_data()\ | Structured extraction via GPT function calling |
+| 2 | \generate_summary()\ | Professional summary (250 words max) |
+| 3 | \emove_pii()\ | Redact names, emails, phones, addresses |
+| 4 | \ResumeStorage.store()\ | Persist to Cosmos DB |
 
-```toml
-[agent]
-name = "ResumeProcessorAgent"
-version = "2.0.0"
+## Configuration
+
+All settings in \config/agent.toml\:
+
+\\\	oml
+[app]
+name = \"resume-processor\"
 
 [model]
-provider = "azure_openai"
-deployment = "gpt-4o"
-temperature = 0.3
+provider = \"azure_openai\"
+deployment = \"gpt-4o\"
 
-[[tools]]
-name = "extract_resume_data"
-module = "src.tools.resume.extractor"
-class = "ResumeExtractor"
+[cosmos_db]
+database = \"resume-processor\"
 
-[[workflows]]
-name = "process_resume"
-type = "sequential"
-agents = ["extract_resume_data", "generate_summary", "remove_pii", "store_resume"]
-```
+[workflow]
+steps = [\"extract\", \"summarize\", \"remove_pii\", \"store\"]
+\\\
 
-## API Reference
+## API Endpoints
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/v1/resumes/upload` | Upload resume for processing |
-| `GET` | `/api/v1/resumes` | List all resumes |
-| `GET` | `/api/v1/resumes/{id}` | Get resume by ID |
-| `POST` | `/api/v1/resumes/{id}/process` | Trigger manual processing |
-| `DELETE` | `/api/v1/resumes/{id}` | Delete resume |
-| `POST` | `/api/v1/webhooks/eventgrid` | Event Grid webhook |
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| \/api/upload\ | POST | Upload resume for processing |
+| \/api/resume/{id}\ | GET | Get processed resume |
+| \/api/resumes\ | GET | List all processed resumes |
 
-## Processing Pipeline
+## Environment Variables
 
-```mermaid
-sequenceDiagram
-    participant User
-    participant API
-    participant Agent
-    participant Extractor
-    participant Summarizer
-    participant PIIRemover
-    participant Storage
-    participant Cosmos
+\\\
+AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
+COSMOS_DB_ENDPOINT=https://your-cosmos.documents.azure.com:443/
+\\\
 
-    User->>API: Upload Resume
-    API->>Cosmos: Store raw resume
-    API->>Agent: process_and_store()
-    
-    Agent->>Extractor: extract(text)
-    Extractor-->>Agent: structured data
-    
-    Agent->>Summarizer: summarize(data)
-    Summarizer-->>Agent: summary
-    
-    Agent->>PIIRemover: remove(summary)
-    PIIRemover-->>Agent: sanitized summary
-    
-    Agent->>Storage: store(processed_data)
-    Storage->>Cosmos: Upsert document
-    Storage-->>Agent: success
-    
-    Agent-->>API: result
-    API-->>User: Resume processed
-```
+## Why Not Agents?
 
-## Security
+This is a **fixed pipeline** with deterministic steps:
 
-- **Managed Identity**: No API keys in code
-- **PII Protection**: All outputs sanitized
-- **RBAC**: Least-privilege access to Azure resources
+| Approach | When to Use |
+|----------|-------------|
+| **Pipeline**  | Fixed sequence, no decisions needed |
+| **Agent** | Dynamic routing, tool selection, multi-turn reasoning |
 
-## Deployment
-
-### Azure Container Apps
-
-```powershell
-# Deploy infrastructure
-cd deployment
-.\Deploy-AzureResources.ps1 -ResourceGroupName "rg-resume-processor"
-
-# Build & push
-docker build -t resume-api:latest ./backend
-az acr login --name <registry>
-docker push <registry>.azurecr.io/resume-api:latest
-```
+Resume processing always runs the same steps in order  Pipeline wins.
 
 ## License
 
