@@ -1,0 +1,80 @@
+# Resume Processor Agent Configuration
+# Enterprise-grade AI-powered resume processing
+
+[agent]
+name = "ResumeProcessorAgent"
+description = "AI-powered resume processing agent that extracts structured data, generates summaries, and removes PII"
+version = "2.0.0"
+
+[model]
+provider = "azure_openai"
+endpoint_env = "AZURE_OPENAI_ENDPOINT"
+api_key_env = "AZURE_OPENAI_API_KEY"
+deployment = "gpt-4o"
+api_version = "2024-12-01-preview"
+temperature = 0.3
+max_tokens = 4096
+
+[system_prompt]
+file = "config/orchestrator/system_prompt.txt"
+
+[[tools]]
+name = "extract_resume_data"
+description = "Extract structured information from resume text including personal info, education, work experience, and skills using AI function calling"
+source = "local"
+module = "src.tools.resume.extractor"
+class = "ResumeExtractor"
+method = "extract"
+
+[[tools]]
+name = "generate_summary"
+description = "Generate an unbiased, extractive summary of the resume using neutral language"
+source = "local"
+module = "src.tools.resume.summarizer"
+class = "ResumeSummarizer"
+method = "summarize"
+
+[[tools]]
+name = "remove_pii"
+description = "Remove personally identifiable information (PII) from text using AI-powered redaction"
+source = "local"
+module = "src.tools.resume.pii_remover"
+class = "PIIRemover"
+method = "remove"
+
+[[tools]]
+name = "store_resume"
+description = "Store processed resume data in Cosmos DB"
+source = "local"
+module = "src.tools.resume.storage"
+class = "ResumeStorage"
+method = "store"
+
+[[tools]]
+name = "get_resume"
+description = "Retrieve a resume by ID from Cosmos DB"
+source = "local"
+module = "src.tools.resume.storage"
+class = "ResumeStorage"
+method = "get"
+
+[[tools]]
+name = "list_resumes"
+description = "List all resumes with optional status filter"
+source = "local"
+module = "src.tools.resume.storage"
+class = "ResumeStorage"
+method = "list"
+
+# Workflow for complete resume processing
+[[workflows]]
+name = "process_resume"
+type = "sequential"
+description = "Complete resume processing pipeline: extract -> summarize -> remove PII -> store"
+agents = ["extract_resume_data", "generate_summary", "remove_pii", "store_resume"]
+
+[cosmos_db]
+endpoint_env = "COSMOS_DB_ENDPOINT"
+database = "resume-processor"
+raw_container = "raw-resumes"
+processed_container = "processed-resumes"
