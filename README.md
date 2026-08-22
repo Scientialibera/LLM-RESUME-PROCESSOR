@@ -1,110 +1,100 @@
 # LLM Resume Processor
 
-Enterprise-grade resume processing **pipeline** built with Azure OpenAI and Cosmos DB.
+Deterministic resume-processing pipeline built around Azure OpenAI and Azure Cosmos DB. The workflow extracts structured resume data, generates a professional summary, reduces personally identifiable information in that summary and can persist the processed result.
 
->  **Architecture Note**: This is a **deterministic pipeline**, not an agentic system.
-> Agents are for autonomous decision-making; this is a sequential workflow.
+This is a fixed application workflow rather than an autonomous agent. Processing order is controlled by application code.
 
-## Pipeline Flow
+## Pipeline
 
-\\\
-Resume Upload  Extract Data  Generate Summary  Remove PII  Store Results
-\\\
+```text
+resume text
+    |
+    v
+structured extraction
+    |
+    v
+summary generation
+    |
+    v
+PII reduction
+    |
+    v
+optional Cosmos DB persistence
+```
 
-\\\mermaid
-graph LR
-    A[ Resume Upload] --> B[ Extract Data]
-    B --> C[ Summarize]
-    C --> D[ Remove PII]
-    D --> E[ Store to Cosmos DB]
-\\\
+Core implementation:
 
-## Quick Start
+```text
+src/pipeline/
+  extractor.py       structured extraction
+  summarizer.py      summary generation
+  pii_remover.py     deterministic + model-assisted PII reduction
+  storage.py         asynchronous Cosmos DB access
+  processor.py       orchestration and client lifecycle
+config/
+  agent.toml         pipeline and Azure resource configuration
+```
 
-\\\ash
-# Install
-pip install -r requirements.txt
+## Privacy boundary
 
-# Configure
+Resume data is sensitive. The PII stage is a reduction mechanism, not a compliance guarantee. It performs deterministic redaction for common email, phone and date patterns before and after contextual model-based redaction, but downstream systems must still treat the result as potentially sensitive.
+
+Do not use `sanitized_summary` as the only control before public release, analytics export or logging. Apply the organization's privacy review, retention policy, access controls and data-loss-prevention controls independently.
+
+## Local setup
+
+Python 3.11 or later is required.
+
+```bash
+python -m venv .venv
+
+# Windows
+.venv\Scripts\activate
+
+# macOS/Linux
+source .venv/bin/activate
+
+pip install -e ".[dev]"
 cp .env.example .env
-# Edit .env with your Azure credentials
+```
 
-# Run API
-python -m uvicorn src.api.main:app --reload
-\\\
+Configure the Azure endpoints/deployments referenced by `config/agent.toml`. Microsoft Entra ID / managed identity is preferred; an API-key environment variable is supported when configured explicitly.
 
-## Project Structure
+## Programmatic use
 
-\\\
- config/
-    agent.toml          # Pipeline configuration (TOML)
- src/
-    api/                 # FastAPI endpoints
-       main.py
-    pipeline/            # Processing workflow
-        processor.py     # Main pipeline orchestrator
-        extractor.py     # Resume data extraction
-        summarizer.py    # Summary generation
-        pii_remover.py   # PII redaction
-        storage.py       # Cosmos DB storage
- frontend/                # React UI
- requirements.txt
-\\\
+```python
+import asyncio
 
-## Pipeline Steps
+from src.pipeline.processor import ResumeProcessor
 
-| Step | Function | Description |
-|------|----------|-------------|
-| 1 | \xtract_resume_data()\ | Structured extraction via GPT function calling |
-| 2 | \generate_summary()\ | Professional summary (250 words max) |
-| 3 | \emove_pii()\ | Redact names, emails, phones, addresses |
-| 4 | \ResumeStorage.store()\ | Persist to Cosmos DB |
 
-## Configuration
+async def main() -> None:
+    async with ResumeProcessor("config/agent.toml") as processor:
+        result = await processor.process("resume text")
+        print(result["sanitized_summary"])
 
-All settings in \config/agent.toml\:
 
-\\\	oml
-[app]
-name = \"resume-processor\"
+asyncio.run(main())
+```
 
-[model]
-provider = \"azure_openai\"
-deployment = \"gpt-4o\"
+Use `process_and_store(...)` when Cosmos persistence is required.
 
-[cosmos_db]
-database = \"resume-processor\"
+## Operational requirements
 
-[workflow]
-steps = [\"extract\", \"summarize\", \"remove_pii\", \"store\"]
-\\\
+- Keep raw resumes and processed documents behind least-privilege access controls.
+- Use managed identity where the hosting platform supports it.
+- Do not log resume bodies, generated summaries or extracted personal fields.
+- Configure retention and deletion rules for both raw and processed containers.
+- Validate uploaded file type and size before extracting text in an API/UI layer.
+- Apply malware scanning to untrusted uploads before content processing.
+- Treat model outputs as untrusted application data and validate structured results before downstream use.
+- Monitor model/API failures separately from document-level validation failures.
 
-## API Endpoints
+## Development
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| \/api/upload\ | POST | Upload resume for processing |
-| \/api/resume/{id}\ | GET | Get processed resume |
-| \/api/resumes\ | GET | List all processed resumes |
+```bash
+ruff check src tests
+pytest
+```
 
-## Environment Variables
-
-\\\
-AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
-COSMOS_DB_ENDPOINT=https://your-cosmos.documents.azure.com:443/
-\\\
-
-## Why Not Agents?
-
-This is a **fixed pipeline** with deterministic steps:
-
-| Approach | When to Use |
-|----------|-------------|
-| **Pipeline**  | Fixed sequence, no decisions needed |
-| **Agent** | Dynamic routing, tool selection, multi-turn reasoning |
-
-Resume processing always runs the same steps in order  Pipeline wins.
-
-## License
-
-MIT
+The project does not include CI/CD in this repository. Deployment-specific identity, networking, secret management and observability should be defined by the owning platform environment.
